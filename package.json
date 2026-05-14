@@ -1,0 +1,42 @@
+{
+  "name": "furry-companion-mcp",
+  "version": "0.1.0",
+  "description": "AI Companion MCP Runtime for agent presence events over stdio.",
+  "type": "module",
+  "bin": {
+    "furry-companion-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "mcp-config.example.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "prepack": "npm run build",
+    "pack:dry-run": "npm pack --dry-run",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai-companion",
+    "agent-presence",
+    "vscode"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
