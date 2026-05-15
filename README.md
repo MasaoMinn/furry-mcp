@@ -60,7 +60,7 @@ furry-companion-mcp
 
 ## VSCode Extension Bridge
 
-The MCP server starts a local JSON Lines IPC bridge for non-MCP UI consumers.
+The MCP server starts a local JSON Lines IPC bridge for non-MCP UI consumers. Multiple MCP processes can run at the same time: the first process owns the bridge, and later processes relay their state events into the existing bridge.
 
 Default IPC path:
 

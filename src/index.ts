@@ -38,7 +38,9 @@ process.on("SIGTERM", () => {
   void shutdown("SIGTERM").finally(() => process.exit(0));
 });
 
-console.error(`[furry-companion-mcp] ipc:${stateIpcBridge.path}`);
+console.error(
+  `[furry-companion-mcp] ipc:${stateIpcBridge.path} mode:${stateIpcBridge.mode}`
+);
 
 const transport = new StdioServerTransport();
 transport.onclose = () => {

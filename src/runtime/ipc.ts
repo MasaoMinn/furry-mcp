@@ -5,12 +5,13 @@ import path from "node:path";
 import net from "node:net";
 import { bus } from "./bus.js";
 import { getState } from "./state.js";
-import type { StateEvent } from "../shared/protocol.js";
+import { StateEventSchema, type StateEvent } from "../shared/protocol.js";
 
 const DEFAULT_IPC_NAME = "furry-companion-mcp";
 
 export interface StateIpcBridge {
   path: string;
+  mode: "server" | "relay" | "disabled";
   close: () => Promise<void>;
 }
 
@@ -29,11 +30,42 @@ export function resolveIpcPath(): string {
 export async function startStateIpcBridge(
   ipcPath = resolveIpcPath()
 ): Promise<StateIpcBridge> {
-  const clients = new Set<net.Socket>();
-
-  if (process.platform !== "win32" && existsSync(ipcPath)) {
-    await unlink(ipcPath);
+  try {
+    return await startStateIpcServer(ipcPath);
+  } catch (error) {
+    if (isAddressInUse(error)) {
+      try {
+        return await startStateIpcRelay(ipcPath);
+      } catch (relayError) {
+        if (process.platform !== "win32" && existsSync(ipcPath)) {
+          try {
+            await unlink(ipcPath);
+            return await startStateIpcServer(ipcPath);
+          } catch (retryError) {
+            console.error(
+              `[furry-companion-mcp] ipc disabled: ${getErrorMessage(retryError)}`
+            );
+          }
+        } else {
+          console.error(
+            `[furry-companion-mcp] ipc disabled: ${getErrorMessage(relayError)}`
+          );
+        }
+      }
+    } else {
+      console.error(
+        `[furry-companion-mcp] ipc disabled: ${getErrorMessage(error)}`
+      );
+    }
   }
+
+  return createDisabledBridge(ipcPath);
+}
+
+async function startStateIpcServer(ipcPath: string): Promise<StateIpcBridge> {
+  const clients = new Set<net.Socket>();
+  const buffers = new Map<net.Socket, string>();
+  let bridgeState = getState();
 
   const writeEvent = (socket: net.Socket, event: StateEvent) => {
     if (!socket.destroyed) {
@@ -42,8 +74,31 @@ export async function startStateIpcBridge(
   };
 
   const broadcastState = (event: StateEvent) => {
+    bridgeState = event.state;
     for (const client of clients) {
       writeEvent(client, event);
+    }
+  };
+
+  const handleIncomingChunk = (socket: net.Socket, chunk: Buffer) => {
+    const nextBuffer = `${buffers.get(socket) ?? ""}${chunk.toString("utf8")}`;
+    const lines = nextBuffer.split("\n");
+    buffers.set(socket, lines.pop() ?? "");
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        continue;
+      }
+
+      try {
+        const parsed = StateEventSchema.safeParse(JSON.parse(trimmed));
+        if (parsed.success) {
+          broadcastState(parsed.data);
+        }
+      } catch {
+        // Ignore malformed bridge input. MCP stdio must stay healthy.
+      }
     }
   };
 
@@ -51,15 +106,21 @@ export async function startStateIpcBridge(
     clients.add(socket);
     writeEvent(socket, {
       type: "state",
-      state: getState()
+      state: bridgeState
+    });
+
+    socket.on("data", (chunk) => {
+      handleIncomingChunk(socket, chunk);
     });
 
     socket.on("close", () => {
       clients.delete(socket);
+      buffers.delete(socket);
     });
 
     socket.on("error", () => {
       clients.delete(socket);
+      buffers.delete(socket);
       socket.destroy();
     });
   });
@@ -87,6 +148,7 @@ export async function startStateIpcBridge(
 
   return {
     path: ipcPath,
+    mode: "server",
     close: async () => {
       bus.removeListener("state", broadcastState);
 
@@ -108,4 +170,64 @@ export async function startStateIpcBridge(
       }
     }
   };
+}
+
+async function startStateIpcRelay(ipcPath: string): Promise<StateIpcBridge> {
+  const socket = net.createConnection(ipcPath);
+
+  await new Promise<void>((resolve, reject) => {
+    const onError = (error: Error) => {
+      socket.off("connect", onConnect);
+      reject(error);
+    };
+    const onConnect = () => {
+      socket.off("error", onError);
+      resolve();
+    };
+
+    socket.once("error", onError);
+    socket.once("connect", onConnect);
+  });
+
+  const forwardState = (event: StateEvent) => {
+    if (!socket.destroyed) {
+      socket.write(`${JSON.stringify(event)}\n`);
+    }
+  };
+
+  socket.on("error", (error) => {
+    console.error(`[furry-companion-mcp] ipc relay error: ${error.message}`);
+  });
+
+  bus.on("state", forwardState);
+
+  return {
+    path: ipcPath,
+    mode: "relay",
+    close: async () => {
+      bus.removeListener("state", forwardState);
+      socket.destroy();
+    }
+  };
+}
+
+function createDisabledBridge(ipcPath: string): StateIpcBridge {
+  return {
+    path: ipcPath,
+    mode: "disabled",
+    close: async () => {}
+  };
+}
+
+function isAddressInUse(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "EADDRINUSE"
+  );
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

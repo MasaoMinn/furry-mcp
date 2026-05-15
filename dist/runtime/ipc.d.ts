@@ -1,5 +1,6 @@
 export interface StateIpcBridge {
     path: string;
+    mode: "server" | "relay" | "disabled";
     close: () => Promise<void>;
 }
 export declare function getDefaultIpcPath(): string;
