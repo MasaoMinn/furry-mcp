@@ -4,7 +4,7 @@
   "description": "AI Companion MCP Runtime for agent presence events over stdio.",
   "type": "module",
   "bin": {
-    "furry-companion-mcp": "./dist/index.js"
+    "furry-companion-mcp": "dist/index.js"
   },
   "files": [
     "dist",
