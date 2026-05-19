@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import net from "node:net";
 import { bus } from "./bus.js";
-import { getState } from "./state.js";
+import { getStateEvent } from "./state.js";
 import { StateEventSchema } from "../shared/protocol.js";
 const DEFAULT_IPC_NAME = "furry-companion-mcp";
 export function getDefaultIpcPath() {
@@ -49,14 +49,14 @@ export async function startStateIpcBridge(ipcPath = resolveIpcPath()) {
 async function startStateIpcServer(ipcPath) {
     const clients = new Set();
     const buffers = new Map();
-    let bridgeState = getState();
+    let bridgeEvent = getStateEvent();
     const writeEvent = (socket, event) => {
         if (!socket.destroyed) {
             socket.write(`${JSON.stringify(event)}\n`);
         }
     };
     const broadcastState = (event) => {
-        bridgeState = event.state;
+        bridgeEvent = event;
         for (const client of clients) {
             writeEvent(client, event);
         }
@@ -83,10 +83,7 @@ async function startStateIpcServer(ipcPath) {
     };
     const server = net.createServer((socket) => {
         clients.add(socket);
-        writeEvent(socket, {
-            type: "state",
-            state: bridgeState
-        });
+        writeEvent(socket, bridgeEvent);
         socket.on("data", (chunk) => {
             handleIncomingChunk(socket, chunk);
         });

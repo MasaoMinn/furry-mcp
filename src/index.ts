@@ -17,7 +17,15 @@ const stateIpcBridge = await startStateIpcBridge();
 let shuttingDown = false;
 
 bus.on("state", (event) => {
-  console.error(`[furry-companion-mcp] state:${event.state}`);
+  const detail = [
+    event.file ? `file:${event.file}` : undefined,
+    event.message ? `message:${event.message}` : undefined
+  ]
+    .filter(Boolean)
+    .join(" ");
+  console.error(
+    `[furry-companion-mcp] state:${event.state}${detail ? ` ${detail}` : ""}`
+  );
 });
 
 async function shutdown(reason: string): Promise<void> {

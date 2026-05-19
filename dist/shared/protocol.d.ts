@@ -23,6 +23,8 @@ export declare const StateEventSchema: z.ZodObject<{
         success: "success";
         error: "error";
     }>;
+    message: z.ZodOptional<z.ZodString>;
+    file: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type StateEvent = z.infer<typeof StateEventSchema>;
 export declare const SetStateInputSchema: z.ZodObject<{
@@ -36,5 +38,7 @@ export declare const SetStateInputSchema: z.ZodObject<{
         success: "success";
         error: "error";
     }>;
+    message: z.ZodOptional<z.ZodString>;
+    file: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type SetStateInput = z.infer<typeof SetStateInputSchema>;

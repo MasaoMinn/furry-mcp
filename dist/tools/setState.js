@@ -1,8 +1,8 @@
 import { SetStateInputSchema } from "../shared/protocol.js";
 import { setRuntimeState } from "../runtime/state.js";
 export function registerSetStateTool(server) {
-    server.tool("set_state", "Publish the AI companion runtime state to the local event bus.", SetStateInputSchema.shape, async ({ state }) => {
-        const event = setRuntimeState(state);
+    server.tool("set_state", "Publish the AI companion runtime state, optional message, and active file to the local event bus.", SetStateInputSchema.shape, async (input) => {
+        const event = setRuntimeState(input);
         return {
             content: [
                 {

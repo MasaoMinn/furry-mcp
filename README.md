@@ -16,6 +16,16 @@ No websocket MCP transport is used.
 set_state({ state: "thinking" })
 ```
 
+`message` and `file` are optional. Use `message` to describe what the agent is doing, and use `file` when the agent is actively editing a code file:
+
+```ts
+set_state({
+  state: "coding",
+  message: "Updating the webview state renderer.",
+  file: "src/stateViewProvider.ts"
+})
+```
+
 Supported states:
 
 - `idle`
@@ -32,7 +42,9 @@ The tool emits:
 ```ts
 bus.emit("state", {
   type: "state",
-  state
+  state,
+  message,
+  file
 })
 ```
 
@@ -76,10 +88,10 @@ FURRY_COMPANION_IPC_PATH=/tmp/my-companion.sock furry-companion-mcp
 Each IPC line is a state event:
 
 ```json
-{"type":"state","state":"thinking"}
+{"type":"state","state":"coding","message":"Updating the webview state renderer.","file":"src/stateViewProvider.ts"}
 ```
 
-The VSCode extension should connect to this IPC path with Node `net`, parse newline-delimited JSON, then call `webview.postMessage({ command: "companion-state", ... })`.
+The VSCode extension should connect to this IPC path with Node `net`, parse newline-delimited JSON, then call `webview.postMessage({ command: "state-update", ... })`.
 
 ## Agent Skills
 
